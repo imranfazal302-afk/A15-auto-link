@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ringba RTB Fetcher - Secure Version</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; padding-top: 40px; margin: 0; }
+        .card { background: white; padding: 35px; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.1); width: 380px; text-align: center; position: relative; }
+        h2 { color: #333; margin-top: 0; }
+        input, select { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #dcdcdc; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+        button { background-color: #0066cc; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 15px; font-weight: bold; transition: background 0.2s;}
+        button:hover { background-color: #0052a3; }
+        #submitBtn:disabled { background-color: #99c2ff; cursor: not-allowed; }
+        
+        #result { margin-top: 25px; display: none; background: #e6f2ff; padding: 20px; border-radius: 8px; border: 1px solid #b3d9ff;}
+        .success-text { font-size: 18px; color: #28a745; font-weight: bold; margin-bottom: 5px;}
+        .did-text { font-size: 28px; font-weight: bold; color: #333; margin: 10px 0; letter-spacing: 1px;}
+        .copy-btn { background-color: #28a745; margin-top: 10px;}
+        .copy-btn:hover { background-color: #218838; }
+        
+        .error { color: #dc3545; margin-top: 15px; display: none; font-weight: bold; background: #ffe6e6; padding: 10px; border-radius: 6px; border: 1px solid #ffcccc;}
+        
+        /* Hidden Admin Panel */
+        #adminPanel { display: none; position: absolute; top: 10px; right: 10px; background: #333; color: white; padding: 10px; border-radius: 5px; font-size: 12px; z-index: 100; text-align: left;}
+        #adminPanel input { width: 60px; padding: 5px; font-size: 12px; margin: 0; color: black; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="adminPanel">
+        Min Bid: $<input type="number" id="minBidInput" value="15.00" step="0.50">
+        <br><label style="font-size:10px;"><input type="checkbox" id="debugMode"> Debug Mode (F12)</label>
+    </div>
+
+    <h2>Get DID</h2>
+    <form id="rtbForm">
+        <input type="text" id="phone" placeholder="Customer Phone" required>
+        <input type="text" id="zipcode" placeholder="Zip Code" required>
+        
+        <select id="state" required>
+            <option value="">Select State...</option>
+            <option value="AL">Alabama</option><option value="AK">Alaska</option><option value="AZ">Arizona</option>
+            <option value="AR">Arkansas</option><option value="CA">California</option><option value="CO">Colorado</option>
+            <option value="CT">Connecticut</option><option value="DE">Delaware</option><option value="FL">Florida</option>
+            <option value="GA">Georgia</option><option value="HI">Hawaii</option><option value="ID">Idaho</option>
+            <option value="IL">Illinois</option><option value="IN">Indiana</option><option value="IA">Iowa</option>
+            <option value="KS">Kansas</option><option value="KY">Kentucky</option><option value="LA">Louisiana</option>
+            <option value="ME">Maine</option><option value="MD">Maryland</option><option value="MA">Massachusetts</option>
+            <option value="MI">Michigan</option><option value="MN">Minnesota</option><option value="MS">Mississippi</option>
+            <option value="MO">Missouri</option><option value="MT">Montana</option><option value="NE">Nebraska</option>
+            <option value="NV">Nevada</option><option value="NH">New Hampshire</option><option value="NJ">New Jersey</option>
+            <option value="NM">New Mexico</option><option value="NY">New York</option><option value="NC">North Carolina</option>
+            <option value="ND">North Dakota</option><option value="OH">Ohio</option><option value="OK">Oklahoma</option>
+            <option value="OR">Oregon</option><option value="PA">Pennsylvania</option><option value="RI">Rhode Island</option>
+            <option value="SC">South Carolina</option><option value="SD">South Dakota</option><option value="TN">Tennessee</option>
+            <option value="TX">Texas</option><option value="UT">Utah</option><option value="VT">Vermont</option>
+            <option value="VA">Virginia</option><option value="WA">Washington</option><option value="WV">West Virginia</option>
+            <option value="WI">Wisconsin</option><option value="WY">Wyoming</option>
+        </select>
+
+        <button type="submit" id="submitBtn">Submit Lead</button>
+    </form>
+
+    <div id="errorMsg" class="error">Lead Rejected. Please move to next customer.</div>
+
+    <div id="result">
+        <div class="success-text">Lead Approved!</div>
+        <div class="did-text" id="didNumber">+10000000000</div>
+        <button id="copyBtn" class="copy-btn">Copy Number</button>
+    </div>
+</div>
+
+<script>
+    // Hidden Admin Panel Access
+    window.addEventListener('keydown', function(e) {
+        if (e.key === 'A') { 
+            const pass = prompt("Enter Admin Password:");
+            if (pass === "admin123") {
+                document.getElementById('adminPanel').style.display = "block";
+            }
+        }
+    });
+
+    document.getElementById('rtbForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const ringbaId = "82dd64a70ef14d138263bff06b7230e0";
+        const currentMinBid = parseFloat(document.getElementById('minBidInput').value);
+        const debug = document.getElementById('debugMode').checked;
+
+        const submitBtn = document.getElementById('submitBtn');
+        const resultDiv = document.getElementById('result');
+        const errorMsg = document.getElementById('errorMsg');
+        
+        submitBtn.innerText = "Checking...";
+        submitBtn.disabled = true;
+        resultDiv.style.display = "none";
+        errorMsg.style.display = "none";
+
+        const phone = document.getElementById('phone').value.replace(/\D/g, ''); 
+        const zip = document.getElementById('zipcode').value.trim();
+        const state = document.getElementById('state').value;
+
+        const targetUrl = `https://rtb.ringba.com/v1/production/${ringbaId}.json?exposecallerid=yes&cid=%2B${phone}&zipcode=${zip}&state=${state}`;
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+
+        try {
+            const response = await fetch(proxyUrl);
+            const data = await response.json();
+            
+            if (debug) console.log("Ringba Response:", data);
+
+            const did = data.phoneNumber || data.number || data.allocated_number || null;
+            const bid = parseFloat(data.bidAmount || data.bid || data.payout || 0);
+
+            if (did && bid >= currentMinBid) {
+                document.getElementById('didNumber').innerText = did;
+                resultDiv.style.display = "block";
+            } else {
+                errorMsg.style.display = "block";
+                if (debug) console.warn(`REJECT: Bid ($${bid}) was lower than Min ($${currentMinBid})`);
+            }
+        } catch (error) {
+            errorMsg.style.display = "block";
+            if (debug) console.error("Network Error:", error);
+        } finally {
+            submitBtn.innerText = "Submit Lead";
+            submitBtn.disabled = false;
+        }
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', function() {
+        const didText = document.getElementById('didNumber').innerText;
+        navigator.clipboard.writeText(didText);
+        this.innerText = "Copied!";
+        setTimeout(() => { this.innerText = "Copy Number"; }, 1500);
+    });
+</script>
+
+</body>
+</html>
